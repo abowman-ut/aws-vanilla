@@ -10,7 +10,6 @@
 		"prepare": "svelte-kit sync || echo ''"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^6.1.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.43.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.0",
@@ -18,17 +17,7 @@
 		"vite": "^7.1.7"
 	},
 	"dependencies": {
-		"@aws-amplify/auth": "^6.12.2",
-		"@aws-amplify/core": "^6.11.2",
-		"@aws-sdk/client-dynamodb": "^3.777.0",
-		"@aws-sdk/client-s3": "^3.777.0",
-		"@aws-sdk/lib-dynamodb": "^3.777.0",
-		"@aws-sdk/s3-request-presigner": "^3.777.0",
-		"amplify-adapter": "^0.2.0",
-		"aws-amplify": "^6.14.2",
 		"bootstrap": "^5.3.3",
-		"bootstrap-icons": "^1.11.3",
-		"chart.js": "^4.4.8",
-		"dotenv": "^16.4.7"
+		"bootstrap-icons": "^1.11.3"
 	}
 }
