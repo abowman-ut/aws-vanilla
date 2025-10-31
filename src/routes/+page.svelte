@@ -1,48 +1,75 @@
 <script>
-	import { onMount } from 'svelte';
-	import { generateClient } from 'aws-amplify/data';
-	import '../lib/amplify';
+  import { generateClient } from 'aws-amplify/data';
+  import '$lib/amplify';
+  import { browser } from '$app/environment';
+
+  const client = generateClient();
   
-	const client = generateClient();
-	
-	let todos = [];
+  let todos = $state([]);
+  let channel;
+  let isLoading = $state(true);
+  let error = $state(null);	
   
-	onMount(async () => {
-	  // List all todos
-	  const { data: items } = await client.models.Todo.list();
-	  todos = items;
-	});
-  
-	async function createTodo() {
-	  await client.models.Todo.create({
-		content: 'New todo item',
-		isDone: false,
-	  });
-	  
-	  // Refresh list
-	  const { data: items } = await client.models.Todo.list();
-	  todos = items;
-	}
-  
-	async function updateTodo(id, isDone) {
-	  await client.models.Todo.update({
-		id: id,
-		isDone: !isDone,
-	  });
-	  
-	  // Refresh list
-	  const { data: items } = await client.models.Todo.list();
-	  todos = items;
-	}
-  
-	async function deleteTodo(id) {
-	  await client.models.Todo.delete({ id });
-	  
-	  // Refresh list
-	  const { data: items } = await client.models.Todo.list();
-	  todos = items;
-	}
-  </script>
+  async function loadTodos() {
+    try {
+      isLoading = true;
+      const { data } = await client.models.Todo.list();
+      todos = data || [];
+    } catch (err) {
+      error = err.message;
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  // Set up Broadcast Channel for cross-window communication
+  $effect(() => {
+    if (browser) {
+      channel = new BroadcastChannel('todo-updates');
+      
+      // Listen for updates from other windows
+      channel.onmessage = (event) => {
+        if (event.data === 'refresh') {
+          loadTodos();
+        }
+      };
+
+      loadTodos(); // Initial load
+
+      return () => channel.close();
+    }
+  });
+
+  function notifyOtherWindows() {
+    if (channel) {
+      channel.postMessage('refresh');
+    }
+  }
+
+  async function createTodo() {
+    await client.models.Todo.create({
+      content: 'New todo item',
+      isDone: false,
+    });
+    await loadTodos();
+    notifyOtherWindows();
+  }
+
+  async function updateTodo(id, isDone) {
+    await client.models.Todo.update({
+      id: id,
+      isDone: !isDone,
+    });
+    await loadTodos();
+    notifyOtherWindows();
+  }
+
+  async function deleteTodo(id) {
+    await client.models.Todo.delete({ id });
+    await loadTodos();
+    notifyOtherWindows();
+  }
+</script>
 
 
 
@@ -87,26 +114,28 @@
 							</a>
 						</div>
 						<h1>My Todos</h1>
-  
-						<button on:click={createTodo}>Add Todo</button>
+						{#if error}
+						  <p style="color: red;">Error: {error}</p>
+						{/if}
+						{#if isLoading}
+						  <p>Loading...</p>
+						{:else}
+						  <button onclick={createTodo}>Add Todo</button>
 						
-						{#each todos as todo}
-						  <div>
-							<span>{todo.content}</span>
-							<span>{todo.isDone ? '✓ Done' : '⏳ Pending'}</span>
-							<button on:click={() => updateTodo(todo.id, todo.isDone)}>
-							  Toggle
-							</button>
-							<button on:click={() => deleteTodo(todo.id)}>Delete</button>
-						  </div>
-						{/each}
+						  {#each todos as todo (todo.id)}
+							<div>
+							  <span>{todo.content}</span>
+							  <span>{todo.isDone ? '✓ Done' : '⏳ Pending'}</span>
+							  <button onclick={() => updateTodo(todo.id, todo.isDone)}>
+								Toggle
+							  </button>
+							  <button onclick={() => deleteTodo(todo.id)}>Delete</button>
+							</div>
+						  {/each}
+						{/if}
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-</div>
-
-
-  
- 
+</div> 
