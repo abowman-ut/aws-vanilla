@@ -8,15 +8,29 @@
   let todos = $state([]);
   let channel;
   let isLoading = $state(true);
-  let error = $state(null);	
+  let error = $state(null);
+  let isDynamoDBConnected = $state(false);	
   
+  async function checkDynamoDBConnection() {
+    try {
+      // Try a simple query to check if DynamoDB is accessible
+      await client.models.Todo.list({ limit: 1 });
+      isDynamoDBConnected = true;
+    } catch (err) {
+      isDynamoDBConnected = false;
+    }
+  }
+
   async function loadTodos() {
     try {
       isLoading = true;
+      error = null; // Clear any previous errors
       const { data } = await client.models.Todo.list();
       todos = data || [];
+      isDynamoDBConnected = true; // Connection successful
     } catch (err) {
       error = err.message;
+      isDynamoDBConnected = false; // Connection failed
     } finally {
       isLoading = false;
     }
@@ -34,6 +48,8 @@
         }
       };
 
+      // Check connection and load todos
+      checkDynamoDBConnection();
       loadTodos(); // Initial load
 
       return () => channel.close();
@@ -47,27 +63,42 @@
   }
 
   async function createTodo() {
-    await client.models.Todo.create({
-      content: 'New todo item',
-      isDone: false,
-    });
-    await loadTodos();
-    notifyOtherWindows();
+    try {
+      error = null; // Clear any previous errors
+      await client.models.Todo.create({
+        content: 'New todo item',
+        isDone: false,
+      });
+      await loadTodos();
+      notifyOtherWindows();
+    } catch (err) {
+      error = err.message;
+    }
   }
 
   async function updateTodo(id, isDone) {
-    await client.models.Todo.update({
-      id: id,
-      isDone: !isDone,
-    });
-    await loadTodos();
-    notifyOtherWindows();
+    try {
+      error = null; // Clear any previous errors
+      await client.models.Todo.update({
+        id: id,
+        isDone: !isDone,
+      });
+      await loadTodos();
+      notifyOtherWindows();
+    } catch (err) {
+      error = err.message;
+    }
   }
 
   async function deleteTodo(id) {
-    await client.models.Todo.delete({ id });
-    await loadTodos();
-    notifyOtherWindows();
+    try {
+      error = null; // Clear any previous errors
+      await client.models.Todo.delete({ id });
+      await loadTodos();
+      notifyOtherWindows();
+    } catch (err) {
+      error = err.message;
+    }
   }
 </script>
 
@@ -85,7 +116,7 @@
 				</div>
 				<div class="card-body">
 					<p class="card-text">
-						Welcome to your SvelteKit application with Bootstrap integration.
+						Welcome to your SvelteKit application with Bootstrap & DynamoDB integration.
 					</p>
 					
 					<div class="mt-4">
@@ -104,35 +135,32 @@
 								</div>
 							</div>
 						</div>
+						<div class="row">
+							<div class="col-md-6">
+								{#if isDynamoDBConnected}
+									<div class="alert alert-success" role="alert">
+										<i class="bi bi-check-circle me-2"></i>
+										DynamoDB: Connected
+									</div>
+								{:else}
+									<div class="alert alert-danger" role="alert">
+										<i class="bi bi-x-circle me-2"></i>
+										DynamoDB: Disconnected
+									</div>
+								{/if}
+							</div>
+						</div>
 						
 						<div class="mt-3">
+							<h5>Documentation</h5>
 							<a href="https://svelte.dev/docs/kit" class="btn btn-outline-secondary me-2" target="_blank">
-								<i class="bi bi-book me-1"></i> SvelteKit Docs
+								<i class="bi bi-book me-1"></i> SvelteKit
 							</a>
 							<a href="https://getbootstrap.com/docs/5.3/" class="btn btn-outline-secondary" target="_blank">
-								<i class="bi bi-bootstrap me-1"></i> Bootstrap Docs
+								<i class="bi bi-bootstrap me-1"></i> Bootstrap
 							</a>
 						</div>
-						<h1>My Todos</h1>
-						{#if error}
-						  <p style="color: red;">Error: {error}</p>
-						{/if}
-						{#if isLoading}
-						  <p>Loading...</p>
-						{:else}
-						  <button onclick={createTodo}>Add Todo</button>
-						
-						  {#each todos as todo (todo.id)}
-							<div>
-							  <span>{todo.content}</span>
-							  <span>{todo.isDone ? '✓ Done' : '⏳ Pending'}</span>
-							  <button onclick={() => updateTodo(todo.id, todo.isDone)}>
-								Toggle
-							  </button>
-							  <button onclick={() => deleteTodo(todo.id)}>Delete</button>
-							</div>
-						  {/each}
-						{/if}
+
 					</div>
 				</div>
 			</div>
